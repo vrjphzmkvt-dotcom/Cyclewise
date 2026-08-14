@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#FF6B6B">
+<meta name="description" content="月汐 - 你的女性周期闺蜜，记录月经、追踪激素波动、发现身体规律">
+<title>月汐 · 女性周期伴侣</title>
+<!-- PWA manifest 动态生成 -->
+<link rel="manifest" id="manifest-link">
+<!-- 苹果图标/启动 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="月汐">
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ==================== 设计系统 ==================== */
+:root{
+  --primary:#FF6B6B;
+  --primary-dark:#E85D5D;
+  --primary-light:#FFE8E8;
+  --bg:#FFF8F0;
+  --card:#FFFFFF;
+  --text:#3D3D3D;
+  --text-light:#8A8A8A;
+  --text-muted:#B5B5B5;
+  --border:#F0E6DD;
+  --phase-men:#FF9AA2;
+  --phase-fol:#B5EAD7;
+  --phase-ovu:#C7CEEA;
+  --phase-lut:#FFDAC1;
+  --shadow:0 4px 20px rgba(0,0,0,0.06);
+  --radius:20px;
+  --tab-h:64px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{height:100%;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  background:var(--bg);color:var(--text);min-height:100%;
+  padding-bottom:calc(var(--tab-h) + env(safe-area-inset-bottom));
+  -webkit-font-smoothing:antialiased;
+}
+svg.icon{width:20px;height:20px;fill:currentColor;display:inline-block;vertical-align:middle;flex-shrink:0;}
+svg.icon-lg{width:28px;height:28px;}
+/* ==================== 顶部 ==================== */
+.app-header{
+  padding:calc(env(safe-area-inset-top) + 18px) 18px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.app-title{font-size:22px;font-weight:800;color:var(--primary-dark);letter-spacing:1px;}
+.app-title small{font-size:12px;font-weight:400;color:var(--text-light);display:block;letter-spacing:2px;margin-top:2px;}
+#header-date{font-size:13px;color:var(--text-light);text-align:right;line-height:1.6;}
+/* ==================== 页面容器 ==================== */
+.page{display:none;padding:10px 16px 24px;animation:fadeIn .25s ease;}
+.page.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+/* ==================== 卡片 ==================== */
+.card{
+  background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:18px 16px;margin-bottom:14px;
+}
+.card-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.card-title .icon{color:var(--primary-dark);}
+/* ==================== 今日阶段徽章 ==================== */
+.phase-banner{
+  border-radius:var(--radius);padding:22px 18px;margin-bottom:14px;
+  position:relative;overflow:hidden;color:#4a4a4a;
+}
+.phase-banner .phase-icon{width:48px;height:48px;margin-bottom:10px;}
+.phase-banner .phase-name{font-size:20px;font-weight:800;}
+.phase-banner .phase-day{font-size:13px;opacity:.75;margin-top:3px;}
+.phase-banner .phase-quote{font-size:14px;line-height:1.6;margin-top:12px;background:rgba(255,255,255,.65);border-radius:12px;padding:12px;}
+/* ==================== 周期进度 ==================== */
+.progress-wrap{background:var(--bg);border-radius:14px;padding:14px;}
+.progress-track{height:10px;background:#E8E0D6;border-radius:10px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:10px;transition:width .6s ease;}
+.progress-labels{display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--text-light);}
+.progress-current{text-align:center;margin-top:10px;font-size:13px;font-weight:700;color:var(--primary-dark);}
+/* ==================== 今日建议 ==================== */
+.suggest-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.suggest-item{background:var(--bg);border-radius:14px;padding:12px;}
+.suggest-item .s-label{font-size:12px;color:var(--text-light);display:flex;align-items:center;gap:4px;margin-bottom:6px;}
+.suggest-item .s-content{font-size:13px;line-height:1.5;color:var(--text);}
+.suggest-full{grid-column:1/-1;}
+/* ==================== 按钮 ==================== */
+.btn{display:block;width:100%;padding:16px;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;transition:transform .15s,opacity .15s;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-ghost{background:var(--primary-light);color:var(--primary-dark);}
+.btn-sm{display:inline-block;width:auto;padding:10px 16px;font-size:13px;border-radius:10px;}
+/* ==================== 记录选项 ==================== */
+.option-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.option{flex:1;min-width:52px;padding:12px 8px;border-radius:12px;border:2px solid var(--border);background:#fff;text-align:center;cursor:pointer;transition:all .15s;}
+.option .opt-emoji{font-size:22px;line-height:1;display:block;margin-bottom:4px;}
+.option .opt-label{display:block;font-size:11px;color:var(--text-light);}
+.option.selected{border-color:var(--primary);background:var(--primary-light);}
+.option.selected .opt-label{color:var(--primary-dark);font-weight:600;}
+/* ==================== 底部 Tab ==================== */
+.tab-bar{position:fixed;left:0;right:0;bottom:0;height:calc(var(--tab-h) + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom);}
+.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--text-muted);cursor:pointer;font-size:11px;transition:color .15s;user-select:none;}
+.tab-item .icon{width:22px;height:22px;color:var(--text-muted);transition:color .15s;}
+.tab-item.active{color:var(--primary-dark);}
+.tab-item.active .icon{color:var(--primary-dark);}
+/* ==================== 周期曲线 ==================== */
+.chart-wrap{position:relative;height:280px;}
+.chart-legend{display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:12px;color:var(--text-light);}
+.chart-legend span{display:flex;align-items:center;gap:5px;}
+.chart-legend i{width:16px;height:4px;border-radius:2px;display:inline-block;}
+.phase-tip{margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+.phase-tip span{font-size:11px;padding:4px 10px;border-radius:20px;color:#555;}
+/* ==================== 分析统计 ==================== */
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.stat-item{text-align:center;padding:14px 6px;background:var(--bg);border-radius:14px;}
+.stat-item .num{font-size:20px;font-weight:800;color:var(--primary-dark);line-height:1.2;}
+.stat-item .sub{font-size:12px;color:var(--text-light);margin-top:4px;}
+.stat-item .lbl{font-size:11px;color:var(--text-light);margin-top:2px;}
+.insight-box{background:var(--primary-light);border-radius:14px;padding:14px;font-size:13px;line-height:1.7;color:var(--text);}
+.insight-box b{color:var(--primary-dark);}
+/* ==================== 我的 ==================== */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);}
+.setting-row:last-child{border-bottom:none;}
+.setting-row .label{font-size:14px;}
+.setting-row .sub{font-size:12px;color:var(--text-light);margin-top:2px;}
+.setting-control{display:flex;align-items:center;gap:10px;}
+.setting-control .num{font-size:16px;font-weight:700;min-width:30px;text-align:center;}
+.stepper-btn{width:34px;height:34px;border-radius:10px;border:none;background:var(--primary-light);color:var(--primary-dark);font-size:18px;font-weight:700;cursor:pointer;}
+.knowledge-item{border-radius:14px;padding:14px;margin-bottom:10px;background:var(--bg);}
+.knowledge-item .k-title{font-weight:700;font-size:14px;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.knowledge-item .k-body{font-size:12.5px;line-height:1.7;color:#555;}
+/* ==================== 提醒开关 ==================== */
+.switch{position:relative;width:50px;height:28px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ddd;border-radius:28px;transition:.3s;}
+.slider:before{position:absolute;content:"";height:22px;width:22px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;}
+input:checked + .slider{background:var(--primary);}
+input:checked + .slider:before{transform:translateX(22px);}
+/* ==================== 首次引导 ==================== */
+.onboard-overlay{position:fixed;inset:0;background:#fff;z-index:200;display:none;flex-direction:column;justify-content:center;padding:30px;}
+.onboard-overlay.show{display:flex;}
+.onboard-icon{width:80px;height:80px;color:var(--primary-dark);margin:0 auto 16px;}
+.onboard-title{font-size:26px;font-weight:800;text-align:center;color:var(--primary-dark);margin-bottom:8px;}
+.onboard-sub{text-align:center;font-size:14px;color:var(--text-light);line-height:1.7;margin-bottom:30px;}
+.field{background:var(--bg);border-radius:14px;padding:16px;margin-bottom:14px;}
+.field label{font-size:13px;color:var(--text-light);display:block;margin-bottom:8px;}
+.field input,.field select{width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:16px;background:#fff;color:var(--text);}
+.field input:focus,.field select:focus{outline:none;border-color:var(--primary);}
+/* ==================== 弹窗 ==================== */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:150;display:none;align-items:flex-end;justify-content:center;}
+.modal-mask.show{display:flex;}
+.modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:24px 20px calc(20px + env(safe-area-inset-bottom));animation:slideUp .3s ease;max-height:85vh;overflow-y:auto;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal h3{font-size:18px;font-weight:700;margin-bottom:16px;color:var(--text);display:flex;align-items:center;gap:8px;}
+/* ==================== Toast ==================== */
+#toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + 20px);transform:translateX(-50%) translateY(20px);background:rgba(0,0,0,.8);color:#fff;padding:12px 22px;border-radius:30px;font-size:14px;z-index:300;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+/* ==================== 记录日期显示 ==================== */
+.date-display{font-size:13px;color:var(--text-light);text-align:center;margin-bottom:12px;}
+.empty-state{text-align:center;padding:30px 10px;color:var(--text-light);font-size:13px;line-height:1.8;}
+.empty-state .icon{color:var(--primary);width:48px;height:48px;}
+.privacy-tip{font-size:12px;color:var(--text-light);line-height:1.7;background:var(--bg);border-radius:12px;padding:12px;margin-top:10px;}
+.notice-perm{background:#FFF8E1;border-radius:12px;padding:12px;font-size:12px;color:#8D6E00;line-height:1.6;margin-top:10px;}
+.backup-row{display:flex;gap:10px;margin-top:12px;}
+.backup-row .btn{flex:1;}
+.hidden-input{display:none;}
+.section-gap{height:16px;}
+</style>
+</head>
+<body>
+
+<!-- SVG 图标库 -->
+<div style="display:none;">
+<svg><defs>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M12 3l9 8h-3v10h-5v-7H11v7H6V11H3z"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 17h2v4H3zm4-8h2v12H7zm4-4h2v16h-2zm4 8h2v8h-2zm4-6h2v14h-2z"/></symbol>
+<symbol id="i-diary" viewBox="0 0 24 24"><path d="M16 2H8C6.34 2 5 3.34 5 5v14c0 1.66 1.34 3 3 3h8c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3zm-2 15h-4v-2h4v2zm4-4H6V7h12v6z"/></symbol>
+<symbol id="i-analysis" viewBox="0 0 24 24"><path d="M3 13h2v8H3zm4-6h2v14H7zm4-4h2v18h-2zm4 8h2v10h-2zm4-4h2v14h-2z"/></symbol>
+<symbol id="i-mine" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></symbol>
+<symbol id="i-light" viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7zM9 21a1 1 0 001 1h4a1 1 0 001-1v-1H9v1z"/></symbol>
+<symbol id="i-flower" viewBox="0 0 24 24"><path d="M12 22c4.97 0 9-4.03 9-9-4.97 0-9-4.03-9-9-4.97 0-9 4.03-9 9 0 4.97 4.03 9 9 9z"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></symbol>
+<symbol id="i-blood" viewBox="0 0 24 24"><path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.42 3.58 8 8 8s8-3.58 8-8c0-3.32-2.67-7.25-8-11.8z"/></symbol>
+<symbol id="i-run" viewBox="0 0 24 24"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7z"/></symbol>
+<symbol id="i-food" viewBox="0 0 24 24"><path d="M11 18h2v-3h-2v3zm4-10V3H9v5H7v12h10V8h-2z"/></symbol>
+<symbol id="i-work" viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84a.484.484 0 00-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.488.488 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.27.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 118.4 12 3.6 3.6 0 0112 15.6z"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 002 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4zM12 19a3 3 0 110-6 3 3 0 010 6zm3-8H6V5h9v6z"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19a2 2 0 002 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></symbol>
+</defs></svg></div>
+
+<header class="app-header">
+  <div class="app-title">月汐<small>你的周期闺蜜</small></div>
+  <div id="header-date"></div>
+</header>
+
+<!-- ===== 页面 1：今天 ===== -->
+<div class="page active" id="page-today">
+  <div id="today-phase-banner"></div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-chart"/></svg>我的周期进度</div>
+    <div class="progress-wrap" id="cycle-progress"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-light"/></svg>今天的贴心建议</div>
+    <div class="suggest-grid" id="today-suggest"></div>
+  </div>
+
+  <button class="btn btn-primary" style="margin-bottom:14px;" onclick="openRecordModal()">记今天的感受</button>
+  <button class="btn btn-ghost" onclick="markPeriodToday()">今天来月经了</button>
+</div>
+
+<!-- ===== 页面 2：周期曲线 ===== -->
+<div class="page" id="page-curve">
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-chart"/></svg>激素波动曲线</div>
+    <div class="chart-wrap"><canvas id="hormoneChart"></canvas></div>
+    <div class="chart-legend">
+      <span><i style="background:#FF6B6B;"></i> 雌激素</span>
+      <span><i style="background:#4A90D9;"></i> 孕激素</span>
+      <span><i style="background:#333;"></i> 今天</span>
+    </div>
+    <div class="phase-tip" id="curve-phase-tip"></div>
+  </div>
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-book"/></svg>简单看懂这张图</div>
+    <div class="insight-box" style="background:var(--bg);">
+      横轴是周期天数（从月经第一天开始算）。<br>
+      <b>红线是雌激素</b>：排卵前爬到最高峰，让你精神满满、状态在线。<br>
+      <b>蓝线是孕激素</b>：排卵后上升，黄体期到顶，这时候容易困、情绪敏感。<br>
+      你的周期长度不同也没关系，会自动换算成标准曲线～
+    </div>
+  </div>
+</div>
+
+<!-- ===== 页面 3：日记本 ===== -->
+<div class="page" id="page-diary">
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-diary"/></svg>我的日记本</div>
+    <div class="date-display" id="diary-date-display"></div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;">
+      <button class="btn btn-ghost btn-sm" onclick="showDiaryDatePicker()">选择日期</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearDiary()">回到今天</button>
+    </div>
+    <div id="diary-period-btn"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-heart"/></svg>今天心情怎么样？</div>
+    <div class="option-row" id="mood-options"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-light"/></svg>精力水平</div>
+    <div class="option-row" id="energy-options"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-blood"/></svg>痛经程度</div>
+    <div class="option-row" id="pain-options"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-moon"/></svg>睡眠质量</div>
+    <div class="option-row" id="sleep-options"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-info"/></svg>分泌物情况</div>
+    <div class="option-row" id="discharge-options"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-diary"/></svg>想说的话</div>
+    <textarea id="diary-note" placeholder="记点别的？比如：今天开会特别有灵感…" style="width:100%;min-height:80px;border:2px solid var(--border);border-radius:12px;padding:12px;font-size:14px;resize:vertical;font-family:inherit;"></textarea>
+  </div>
+
+  <button class="btn btn-primary" onclick="saveDiary()">保存今天的记录</button>
+</div>
+
+<!-- ===== 页面 4：规律分析 ===== -->
+<div class="page" id="page-analysis">
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-analysis"/></svg>我的周期数据</div>
+    <div class="stat-grid">
+      <div class="stat-item"><div class="num" id="stat-avg-cycle">--</div><div class="lbl">平均周期(天)</div></div>
+      <div class="stat-item"><div class="num" id="stat-avg-period">--</div><div class="lbl">平均经期(天)</div></div>
+      <div class="stat-item"><div class="num" id="stat-cycles">--</div><div class="lbl">已记录周期</div></div>
+    </div>
+    <div style="height:10px;"></div>
+    <div class="stat-grid">
+      <div class="stat-item"><div class="num" id="stat-next-date">--</div><div class="sub" id="stat-next-label">下次月经</div><div class="lbl" id="stat-next-diff">--</div></div>
+      <div class="stat-item"><div class="num" id="stat-ovu-date">--</div><div class="sub" id="stat-ovu-label">下次排卵</div><div class="lbl" id="stat-ovu-diff">--</div></div>
+      <div class="stat-item"><div class="num" id="stat-days-record">--</div><div class="lbl">已记录天数</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-search"/></svg>我的规律小发现</div>
+    <div class="insight-box" id="analysis-insight"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-save"/></svg>数据备份</div>
+    <p style="font-size:12px;color:var(--text-light);line-height:1.7;margin-bottom:12px;">
+      所有记录都存在<b>你的手机本地</b>，不会上传到任何服务器。换手机或清理浏览器前，记得先导出备份～
+    </p>
+    <div class="backup-row">
+      <button class="btn btn-ghost" onclick="exportData()">导出数据</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">导入数据</button>
+    </div>
+    <input type="file" id="importFile" class="hidden-input" accept=".json" onchange="importData(event)">
+  </div>
+</div>
+
+<!-- ===== 页面 5：我的 ===== -->
+<div class="page" id="page-mine">
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-settings"/></svg>周期设置</div>
+    <div class="setting-row">
+      <div><div class="label">平均周期长度</div><div class="sub">两次月经相隔几天</div></div>
+      <div class="setting-control">
+        <button class="stepper-btn" onclick="adjust('cycle',-1)">−</button>
+        <span class="num" id="set-cycle">28</span>天
+        <button class="stepper-btn" onclick="adjust('cycle',1)">+</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div><div class="label">平均经期长度</div><div class="sub">每次来几天</div></div>
+      <div class="setting-control">
+        <button class="stepper-btn" onclick="adjust('period',-1)">−</button>
+        <span class="num" id="set-period">5</span>天
+        <button class="stepper-btn" onclick="adjust('period',1)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-bell"/></svg>提醒设置</div>
+    <div class="setting-row">
+      <div><div class="label">月经提醒</div><div class="sub">预测月经前一天提醒你</div></div>
+      <label class="switch"><input type="checkbox" id="remind-period" onchange="toggleReminder('period',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="label">排卵提醒</div><div class="sub">预测排卵期开始提醒你</div></div>
+      <label class="switch"><input type="checkbox" id="remind-ovu" onchange="toggleReminder('ovu',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><div class="label">每日记录提醒</div><div class="sub">每天提醒你记一句感受</div></div>
+      <label class="switch"><input type="checkbox" id="remind-daily" onchange="toggleReminder('daily',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div id="notice-perm-box"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-book"/></svg>激素科普小课堂</div>
+    <div class="knowledge-item" style="background:var(--phase-men);">
+      <div class="k-title"><svg class="icon"><use href="#i-blood"/></svg>月经期（约第1-5天）</div>
+      <div class="k-body">雌激素和孕激素都跌到最低点，子宫内膜脱落出血。这时候容易累、怕冷、情绪有点down。<br><b>小贴士：</b>好好休息，吃点热乎的，给自己放个假。</div>
+    </div>
+    <div class="knowledge-item" style="background:var(--phase-fol);">
+      <div class="k-title"><svg class="icon"><use href="#i-flower"/></svg>卵泡期（约第6-13天）</div>
+      <div class="k-body">雌激素一路爬升，身体代谢加快，精力充沛、心情明朗。<br><b>小贴士：</b>这是你状态最好的时候，适合做大事、约朋友、健身打卡！</div>
+    </div>
+    <div class="knowledge-item" style="background:var(--phase-ovu);">
+      <div class="k-title"><svg class="icon"><use href="#i-star"/></svg>排卵期（约第14天前后）</div>
+      <div class="k-body">雌激素冲到顶峰，触发排卵。此时你可能容光焕发、社交欲爆棚、也容易受孕。<br><b>小贴士：</b>做重要沟通、创意工作很加分，注意防护哦。</div>
+    </div>
+    <div class="knowledge-item" style="background:var(--phase-lut);">
+      <div class="k-title"><svg class="icon"><use href="#i-cloud"/></svg>黄体期（约第15-28天）</div>
+      <div class="k-body">孕激素主导，它让你容易困、情绪敏感、可能水肿、乳房胀。<br><b>小贴士：</b>少盐少咖啡因，多补镁和B族维生素，对自己温柔点。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-lock"/></svg>隐私承诺</div>
+    <div class="privacy-tip">
+      <b>你的所有记录只存在这台手机的浏览器本地。</b><br>
+      不注册、不登录、不上传、不卖数据。<br>
+      想删除？清浏览器数据即可彻底清除。<br>
+      建议定期导出备份到相册或网盘，防止丢失。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><svg class="icon"><use href="#i-info"/></svg>免责声明</div>
+    <div class="privacy-tip">
+      月汐是一款记录与科普工具，激素曲线和阶段判断基于通用医学模型<b>估算</b>，不构成医疗诊断。如有异常（周期&lt;21天或&gt;35天、严重疼痛、异常出血等），请及时咨询医生 ❤️
+    </div>
+  </div>
+</div>
+
+<!-- ===== 底部 Tab ===== -->
+<nav class="tab-bar">
+  <div class="tab-item active" data-page="today" onclick="switchPage('today')">
+    <svg class="icon"><use href="#i-home"/></svg>今天
+  </div>
+  <div class="tab-item" data-page="curve" onclick="switchPage('curve')">
+    <svg class="icon"><use href="#i-chart"/></svg>周期
+  </div>
+  <div class="tab-item" data-page="diary" onclick="switchPage('diary')">
+    <svg class="icon"><use href="#i-diary"/></svg>日记
+  </div>
+  <div class="tab-item" data-page="analysis" onclick="switchPage('analysis')">
+    <svg class="icon"><use href="#i-analysis"/></svg>分析
+  </div>
+  <div class="tab-item" data-page="mine" onclick="switchPage('mine')">
+    <svg class="icon"><use href="#i-mine"/></svg>我的
+  </div>
+</nav>
+
+<!-- ===== 首次引导 ===== -->
+<div class="onboard-overlay" id="onboard">
+  <svg class="icon onboard-icon"><use href="#i-moon"/></svg>
+  <div class="onboard-title">欢迎来到月汐</div>
+  <div class="onboard-sub">我是你的周期闺蜜<br>咱们一起认识身体，好好爱自己</div>
+
+  <div class="field">
+    <label>你一般多久来一次月经？（两次月经间隔天数）</label>
+    <input type="number" id="ob-cycle" value="28" min="21" max="45">
+  </div>
+  <div class="field">
+    <label>你每次经期大概几天？（3-10天）</label>
+    <input type="number" id="ob-period" value="5" min="3" max="10">
+  </div>
+  <div class="field">
+    <label>最近一次月经是哪天开始的？</label>
+    <input type="date" id="ob-lastperiod">
+  </div>
+
+  <button class="btn btn-primary" style="margin-top:8px;" onclick="finishOnboard()">开始我的周期之旅</button>
+</div>
+
+<!-- ===== 记录弹窗 ===== -->
+<div class="modal-mask" id="recordModal" onclick="if(event.target===this)closeRecordModal()">
+  <div class="modal">
+    <h3><svg class="icon"><use href="#i-diary"/></svg>记下今天的感受</h3>
+    <div id="record-date-display" class="date-display"></div>
+    <div class="card-title" style="font-size:14px;"><svg class="icon"><use href="#i-heart"/></svg>心情</div>
+    <div class="option-row" id="rm-mood"></div>
+    <div class="card-title" style="font-size:14px;"><svg class="icon"><use href="#i-light"/></svg>精力</div>
+    <div class="option-row" id="rm-energy"></div>
+    <div class="card-title" style="font-size:14px;"><svg class="icon"><use href="#i-blood"/></svg>痛经</div>
+    <div class="option-row" id="rm-pain"></div>
+    <div class="card-title" style="font-size:14px;"><svg class="icon"><use href="#i-moon"/></svg>睡眠</div>
+    <div class="option-row" id="rm-sleep"></div>
+    <button class="btn btn-primary" style="margin-top:8px;" onclick="saveRecordModal()">保存</button>
+  </div>
+</div>
+
+<!-- ===== 日期选择弹窗 ===== -->
+<div class="modal-mask" id="dateModal" onclick="if(event.target===this)closeDateModal()">
+  <div class="modal">
+    <h3><svg class="icon"><use href="#i-calendar"/></svg>选择要记录的日期</h3>
+    <input type="date" id="datePicker" style="width:100%;padding:12px;border:2px solid var(--border);border-radius:10px;font-size:16px;margin-bottom:16px;">
+    <button class="btn btn-primary" onclick="applyDiaryDate()">确定</button>
+  </div>
+</div>
+
+<!-- ===== Toast ===== -->
+<div id="toast"></div>
+
+<script>
+/* ==================== 数据层 ==================== */
+const LS_KEY='yuexi_data_v1';
+let DB={records:{},settings:{cycleLen:28,periodLen:5,lastPeriod:null,reminders:{period:false,ovu:false,daily:false}},firstRun:true};
+
+function loadDB(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){DB=JSON.parse(raw);DB.records=DB.records||{};DB.settings=DB.settings||{};}
+  }catch(e){}
+  DB.settings.cycleLen=DB.settings.cycleLen||28;
+  DB.settings.periodLen=DB.settings.periodLen||5;
+  DB.settings.reminders=DB.settings.reminders||{period:false,ovu:false,daily:false};
+}
+function saveDB(){localStorage.setItem(LS_KEY,JSON.stringify(DB));}
+
+/* ==================== 工具函数 ==================== */
+function todayStr(){const d=new Date();return fmtDate(d);}
+function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function parseDate(s){return new Date(s+'T00:00:00');}
+function addDays(dateStr,days){const d=parseDate(dateStr);d.setDate(d.getDate()+days);return fmtDate(d);}
+function diffDays(a,b){return Math.round((parseDate(b)-parseDate(a))/86400000);}
+function weekCN(s){const d=parseDate(s);return ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()];}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* ==================== 周期预测 ==================== */
+function getPeriodStartDates(){
+  const dates=new Set();
+  for(const d in DB.records){if(DB.records[d].isPeriodStart)dates.add(d);}
+  if(DB.settings.lastPeriod)dates.add(DB.settings.lastPeriod);
+  return Array.from(dates).sort();
+}
+function predictCycleLen(){
+  const dates=getPeriodStartDates().sort();
+  if(dates.length<2)return DB.settings.cycleLen||28;
+  const intervals=[];
+  for(let i=1;i<dates.length;i++){
+    const gap=diffDays(dates[i-1],dates[i]);
+    if(gap>=21&&gap<=45)intervals.push(gap);
+  }
+  if(!intervals.length)return DB.settings.cycleLen||28;
+  intervals.sort((a,b)=>a-b);
+  const mid=Math.floor(intervals.length/2);
+  const med=intervals.length%2?intervals[mid]:(intervals[mid-1]+intervals[mid])/2;
+  return Math.round(med);
+}
+function predictNext(){
+  const cycleLen=predictCycleLen();
+  const dates=getPeriodStartDates();
+  const last=dates.length?dates[dates.length-1]:(DB.settings.lastPeriod||null);
+  if(!last)return null;
+  const next=addDays(last,cycleLen);
+  const ovu=addDays(next,-14);
+  return {next,ovu,cycleLen,last};
+}
+
+/* ==================== 阶段判定 ==================== */
+function getCycleDayFor(dateStr){
+  const pred=predictNext();
+  if(!pred)return null;
+  const nextDate=parseDate(pred.next);
+  const curDate=parseDate(dateStr);
+  const daysToNext=Math.round((nextDate-curDate)/86400000);
+  let dayInCycle=(pred.cycleLen-daysToNext)%pred.cycleLen;
+  if(dayInCycle<=0)dayInCycle+=pred.cycleLen;
+  return dayInCycle;
+}
+function getPhase(dayInCycle,cycleLen){
+  if(!dayInCycle)return null;
+  const periodLen=DB.settings.periodLen||5;
+  const ovuDay=(cycleLen||28)-14;
+  if(dayInCycle<=periodLen)return 'men';
+  if(dayInCycle>=ovuDay-2&&dayInCycle<=ovuDay+2)return 'ovu';
+  if(dayInCycle<ovuDay-2)return 'fol';
+  return 'lut';
+}
+function getPhaseInfo(phase){
+  const map={
+    men:{name:'月经期',icon:'blood',color:'#FF9AA2',quote:'这个阶段激素在低位，你可能会累、怕冷、情绪有点down。没关系，好好休息，吃点热乎的～'},
+    fol:{name:'卵泡期',icon:'flower',color:'#B5EAD7',quote:'雌激素在爬升！你现在精力旺盛、状态在线，很适合做大事、约朋友、挑战新项目！'},
+    ovu:{name:'排卵期',icon:'star',color:'#C7CEEA',quote:'雌激素冲到顶峰啦！你现在容光焕发、社交欲满满，是沟通和创造力的黄金期～'},
+    lut:{name:'黄体期',icon:'cloud',color:'#FFDAC1',quote:'孕激素主导的时期，容易困、情绪敏感、有点水肿都是正常的。对自己温柔一点，少盐少咖啡因～'}
+  };
+  return map[phase];
+}
+
+/* ==================== SVG 图标辅助 ==================== */
+function icon(name){return `<svg class="icon"><use href="#i-${name}"/></svg>`;}
+function iconLg(name){return `<svg class="icon icon-lg"><use href="#i-${name}"/></svg>`;}
+
+/* ==================== 生活建议内容库 ==================== */
+const SUGGEST={
+  men:{
+    exercise:[['yoga','瑜伽 / 轻柔拉伸','做舒缓的瑜伽或拉伸，给身体放个假'],['walk','散步','慢走20分钟，微微出汗就好，别勉强']],
+    diet:[['meat','补铁','吃点瘦肉、猪肝、深色蔬菜，补充流失的铁'],['hot','温热饮食','喝点红糖姜茶或热汤，注意保暖']],
+    work:[['sleep','多休息','减少高强度安排，保证充足睡眠'],['list','列轻松清单','把复杂任务拆小，做点不费脑的活']]
+  },
+  fol:{
+    exercise:[['muscle','力量训练','这是增肌的黄金期！适合力量训练和塑形'],['run','高强度运动','跑步、HIIT都可以，你的体能超在线']],
+    diet:[['protein','高蛋白','多吃鸡胸肉、鱼、蛋、豆制品'],['vitamin','丰富维生素','搭配蔬菜水果，给身体充电']],
+    work:[['target','冲刺新项目','状态好，适合启动新任务、做汇报'],['social','社交搞起来','约朋友、见客户，沟通效果都加分']]
+  },
+  ovu:{
+    exercise:[['swim','有氧运动','游泳、骑车、慢跑，享受身体的活力'],['balance','适量平衡','运动强度适中，别过度消耗']],
+    diet:[['salad','均衡营养','保持多样化饮食，注意补水'],['berry','抗氧化','多吃蓝莓、坚果这类抗氧化食物']],
+    work:[['talk','把握表达力','演讲、谈判、创意提案，现在是你最出彩的时候'],['shine','享受高光','这个阶段你很有魅力，大方去展现吧']]
+  },
+  lut:{
+    exercise:[['moon','温和运动','散步、瑜伽、普拉提，避免过度劳累'],['breath','放松拉伸','多做深呼吸和舒展，缓解紧张']],
+    diet:[['salt','少盐少咖啡因','容易水肿，清淡一点，少喝咖啡和酒'],['b','补镁和B族','坚果、全谷物、香蕉，缓解PMS情绪']],
+    work:[['expect','降低预期','情绪敏感期，把任务安排轻松些'],['care','自我照顾','泡个热水澡、冥想，对自己温柔点']]
+  }
+};
+const SUGGEST_LABELS={exercise:'运动',diet:'饮食',work:'工作生活'};
+const SUGGEST_ICONS={exercise:'run',diet:'food',work:'work'};
+
+/* ==================== 今日页渲染 ==================== */
+function renderToday(){
+  const pred=predictNext();
+  const dayInCycle=getCycleDayFor(todayStr());
+  const phase=getPhase(dayInCycle,pred?pred.cycleLen:null);
+  const info=phase?getPhaseInfo(phase):null;
+  const banner=document.getElementById('today-phase-banner');
+
+  if(!pred||!info){
+    banner.innerHTML=`<div class="phase-banner" style="background:linear-gradient(135deg,#FFE8E8,#FFDAC1);">
+      <div style="font-size:32px;font-weight:800;color:var(--primary-dark);margin-bottom:8px;">欢迎来到月汐</div>
+      <div class="phase-quote">先记录一次月经开始日，我就能帮你算出周期阶段啦！点下方「今天来月经了」就好～</div>
+    </div>`;
+    document.getElementById('today-suggest').innerHTML=`<div class="empty-state" style="grid-column:1/-1;"><div style="font-size:24px;color:var(--primary);margin-bottom:8px;">🌱</div>还没有周期数据，先记录月经开始日吧！</div>`;
+    return;
+  }
+
+  banner.innerHTML=`<div class="phase-banner" style="background:linear-gradient(135deg,${info.color},#FFF);">
+    ${iconLg(info.icon)}
+    <div class="phase-name">${info.name}</div>
+    <div class="phase-day">周期第 ${dayInCycle} 天 / 共约 ${pred.cycleLen} 天</div>
+    <div class="phase-quote">${info.quote}</div>
+  </div>`;
+
+  const pct=Math.round(dayInCycle/pred.cycleLen*100);
+  document.getElementById('cycle-progress').innerHTML=`<div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${info.color};"></div></div>
+    <div class="progress-labels"><span>月经期</span><span>卵泡期</span><span>排卵期</span><span>黄体期</span></div>
+    <div class="progress-current">${info.name} 第 ${dayInCycle} 天，已完成 ${pct}%</div>`;
+
+  const s=SUGGEST[phase];
+  let html='';
+  ['exercise','diet','work'].forEach(k=>{
+    html+=renderSuggest(s[k],SUGGEST_LABELS[k],SUGGEST_ICONS[k],k==='work'?'suggest-full':'');
+  });
+  document.getElementById('today-suggest').innerHTML=html;
+}
+function renderSuggest(items,label,iconKey,cls){
+  return `<div class="suggest-item ${cls||''}">
+    <div class="s-label">${icon(iconKey)} ${label}</div>
+    <div class="s-content">
+      ${items.map(i=>`<div style="margin-bottom:6px;"><b>${i[1]}</b><br>${i[2]}</div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ==================== 激素曲线 ==================== */
+let chartInstance=null;
+function buildHormoneData(cycleLen){
+  const ovuDay=cycleLen-14;
+  const labels=[],est=[],prog=[];
+  for(let d=1;d<=cycleLen;d++){
+    labels.push(d+'日');
+    let e;
+    if(d<=Math.max(3,DB.settings.periodLen)){e=15;}
+    else if(d<=ovuDay){e=15+85*((d-DB.settings.periodLen)/(ovuDay-DB.settings.periodLen));}
+    else if(d<=cycleLen-7){e=100-25*((d-ovuDay)/7);}
+    else{e=75-60*((d-(cycleLen-7))/(cycleLen-(cycleLen-7)));}
+    est.push(Math.max(5,Math.min(100,e)));
+    let p;
+    if(d<=ovuDay){p=5;}
+    else if(d<=cycleLen-3){p=5+90*((d-ovuDay)/(cycleLen-3-ovuDay));}
+    else{p=Math.max(3,95-90*((d-(cycleLen-3))/3));}
+    prog.push(Math.max(3,Math.min(95,p)));
+  }
+  return {labels,est,prog,ovuDay};
+}
+function renderCurve(){
+  if(typeof Chart==='undefined')return;
+  const cycleLen=predictCycleLen();
+  const dayInCycle=getCycleDayFor(todayStr())||1;
+  const data=buildHormoneData(cycleLen);
+
+  const ctx=document.getElementById('hormoneChart').getContext('2d');
+  if(chartInstance)chartInstance.destroy();
+
+  const periodLen=DB.settings.periodLen||5;
+  const ovuDay=data.ovuDay;
+  const bgPlugin={
+    id:'phaseBg',
+    beforeDatasetsDraw(chart){
+      const {ctx,chartArea,scales}=chart;
+      if(!chartArea)return;
+      const x=scales.x;const y=scales.y;
+      const phases=[
+        {s:1,e:periodLen,c:'rgba(255,154,162,0.15)'},
+        {s:periodLen+1,e:ovuDay-3,c:'rgba(181,234,215,0.15)'},
+        {s:ovuDay-2,e:ovuDay+2,c:'rgba(199,206,234,0.18)'},
+        {s:ovuDay+3,e:cycleLen,c:'rgba(255,218,193,0.15)'}
+      ];
+      phases.forEach(p=>{
+        const x0=x.getPixelForValue(p.s-1);
+        const x1=x.getPixelForValue(p.e-1);
+        ctx.fillStyle=p.c;
+        ctx.fillRect(x0,chartArea.top,x1-x0,chartArea.bottom-chartArea.top);
+      });
+    }
+  };
+
+  chartInstance=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:data.labels,
+      datasets:[
+        {label:'雌激素',data:data.est,borderColor:'#FF6B6B',backgroundColor:'rgba(255,107,107,0.1)',borderWidth:2.5,pointRadius:0,tension:.35,fill:true},
+        {label:'孕激素',data:data.prog,borderColor:'#4A90D9',backgroundColor:'rgba(74,144,217,0.1)',borderWidth:2.5,pointRadius:0,tension:.35,fill:true},
+        {label:'今天',data:data.labels.map((_,i)=>i+1===dayInCycle?100:null),borderColor:'transparent',pointRadius:6,pointBackgroundColor:'#333',pointHoverRadius:6}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(0,0,0,0.8)',callbacks:{label(c){if(c.dataset.label==='今天')return null;return c.dataset.label+': '+Math.round(c.parsed.y)+'%';}}}},
+      scales:{x:{display:true,ticks:{maxTicksLimit:7,font:{size:11},color:'#999'},grid:{display:false}},y:{display:false,min:0,max:100}}
+    },
+    plugins:[bgPlugin]
+  });
+
+  const tip=document.getElementById('curve-phase-tip');
+  tip.innerHTML=`
+    <span style="background:#FF9AA2;">月经期</span>
+    <span style="background:#B5EAD7;">卵泡期</span>
+    <span style="background:#C7CEEA;">排卵期</span>
+    <span style="background:#FFDAC1;">黄体期</span>`;
+}
+
+/* ==================== 日记本 ==================== */
+let diaryDate=todayStr();
+const MOODS=[['😄','开心'],['🙂','平静'],['😐','一般'],['😢','低落'],['😡','烦躁']];
+const ENERGIES=[['1','很累'],['2','有点累'],['3','正常'],['4','不错'],['5','满电']];
+const PAINS=[['0','无'],['1','轻微'],['2','中度'],['3','严重']];
+const SLEEPS=[['1','很差'],['2','一般'],['3','还行'],['4','不错'],['5','超好']];
+const DISCHARGES=[['无','无明显'],['清透','清透拉丝'],['稠','乳白稠'],['少','量少']];
+let sel={mood:null,energy:null,pain:null,sleep:null,discharge:null};
+
+function buildOptions(containerId,data,key){
+  const el=document.getElementById(containerId);
+  const current=sel[key];
+  el.innerHTML=data.map(d=>{
+    const val=d[0];
+    const isSel=current===val;
+    return `<div class="option ${isSel?'selected':''}" onclick="selectOption('${containerId}','${key}','${val}')">
+      <span class="opt-emoji">${key==='pain'?val+'级':val}</span>
+      <span class="opt-label">${d[1]}</span>
+    </div>`;
+  }).join('');
+}
+function selectOption(containerId,key,val){sel[key]=val;buildOptions(containerId,{'mood':MOODS,'energy':ENERGIES,'pain':PAINS,'sleep':SLEEPS,'discharge':DISCHARGES}[key],key);}
+function renderDiary(){
+  diaryDate=diaryDate||todayStr();
+  document.getElementById('diary-date-display').innerHTML=`${icon('calendar')} ${diaryDate} ${weekCN(diaryDate)}`;
+  const rec=DB.records[diaryDate];
+  sel={mood:rec?rec.mood:null,energy:rec?rec.energy:null,pain:rec?rec.pain:null,sleep:rec?rec.sleep:null,discharge:rec?rec.discharge:null};
+  buildOptions('mood-options',MOODS,'mood');
+  buildOptions('energy-options',ENERGIES,'energy');
+  buildOptions('pain-options',PAINS,'pain');
+  buildOptions('sleep-options',SLEEPS,'sleep');
+  buildOptions('discharge-options',DISCHARGES,'discharge');
+  document.getElementById('diary-note').value=rec?(rec.note||''):'';
+  const isStart=rec&&rec.isPeriodStart;
+  const pbtn=document.getElementById('diary-period-btn');
+  pbtn.innerHTML=`<button class="btn ${isStart?'btn-primary':'btn-ghost'}" style="margin-bottom:12px;" onclick="togglePeriodStart('${diaryDate}')">${isStart?icon('blood')+' 已标记：这天是月经第1天（点击取消）':icon('blood')+' 标记：这天是月经第1天'}</button>`;
+}
+function togglePeriodStart(d){
+  if(!DB.records[d])DB.records[d]={};
+  DB.records[d].isPeriodStart=!DB.records[d].isPeriodStart;
+  if(DB.records[d].isPeriodStart){
+    DB.settings.lastPeriod=d;
+    showToast('已记录！现在可以预测你的周期啦');
+  }else{
+    if(DB.settings.lastPeriod===d){
+      const others=Object.keys(DB.records).filter(k=>DB.records[k].isPeriodStart&&k!==d).sort();
+      DB.settings.lastPeriod=others.length?others[others.length-1]:null;
+    }
+  }
+  saveDB();renderDiary();renderAll();
+}
+function markPeriodToday(){
+  const d=todayStr();
+  if(!DB.records[d])DB.records[d]={};
+  DB.records[d].isPeriodStart=true;
+  DB.settings.lastPeriod=d;
+  saveDB();
+  showToast('记录成功！今天就是周期第1天');
+  renderAll();
+  switchPage('today');
+}
+function clearDiary(){diaryDate=todayStr();renderDiary();}
+function showDiaryDatePicker(){
+  const el=document.getElementById('datePicker');
+  el.value=diaryDate;
+  document.getElementById('dateModal').classList.add('show');
+}
+function applyDiaryDate(){
+  diaryDate=document.getElementById('datePicker').value||todayStr();
+  document.getElementById('dateModal').classList.remove('show');
+  renderDiary();
+}
+function closeDateModal(){document.getElementById('dateModal').classList.remove('show');}
+function saveDiary(){
+  if(!diaryDate)return;
+  const rec=DB.records[diaryDate]||{};
+  rec.mood=sel.mood;rec.energy=sel.energy;rec.pain=sel.pain;rec.sleep=sel.sleep;
+  rec.discharge=sel.discharge;
+  rec.note=document.getElementById('diary-note').value;
+  DB.records[diaryDate]=rec;
+  saveDB();
+  showToast('记录已保存～');
+  renderAll();
+}
+
+/* ==================== 记录弹窗 ==================== */
+let modalSel={mood:null,energy:null,pain:null,sleep:null};
+function openRecordModal(){
+  modalSel={mood:null,energy:null,pain:null,sleep:null};
+  document.getElementById('record-date-display').innerHTML=`${icon('calendar')} ${todayStr()} ${weekCN(todayStr())}`;
+  buildModalOptions('rm-mood',MOODS,'mood');
+  buildModalOptions('rm-energy',ENERGIES,'energy');
+  buildModalOptions('rm-pain',PAINS,'pain');
+  buildModalOptions('rm-sleep',SLEEPS,'sleep');
+  document.getElementById('recordModal').classList.add('show');
+}
+function buildModalOptions(containerId,data,key){
+  const el=document.getElementById(containerId);
+  el.innerHTML=data.map(d=>{
+    const val=d[0];
+    return `<div class="option ${modalSel[key]===val?'selected':''}" onclick="modalSelect('${containerId}','${key}','${val}')">
+      <span class="opt-emoji">${key==='pain'?val+'级':val}</span>
+      <span class="opt-label">${d[1]}</span>
+    </div>`;
+  }).join('');
+}
+function modalSelect(containerId,key,val){modalSel[key]=val;buildModalOptions(containerId,{'mood':MOODS,'energy':ENERGIES,'pain':PAINS,'sleep':SLEEPS}[key],key);}
+function closeRecordModal(){document.getElementById('recordModal').classList.remove('show');}
+function saveRecordModal(){
+  const d=todayStr();
+  const rec=DB.records[d]||{};
+  rec.mood=modalSel.mood;rec.energy=modalSel.energy;rec.pain=modalSel.pain;rec.sleep=modalSel.sleep;
+  DB.records[d]=rec;
+  saveDB();
+  document.getElementById('recordModal').classList.remove('show');
+  showToast('已记录今天的心情～');
+  renderAll();
+}
+
+/* ==================== 规律分析 ==================== */
+function renderAnalysis(){
+  const pred=predictNext();
+  const dates=getPeriodStartDates();
+  const daysRecorded=Object.keys(DB.records).length;
+
+  const intervals=[];
+  for(let i=1;i<dates.length;i++){
+    const gap=diffDays(dates[i-1],dates[i]);
+    if(gap>=21&&gap<=45)intervals.push(gap);
+  }
+  const avgCycle=intervals.length?Math.round(intervals.reduce((a,b)=>a+b,0)/intervals.length):DB.settings.cycleLen;
+  const avgPeriod=DB.settings.periodLen;
+
+  document.getElementById('stat-avg-cycle').textContent=avgCycle||'--';
+  document.getElementById('stat-avg-period').textContent=avgPeriod||'--';
+  document.getElementById('stat-cycles').textContent=Math.max(0,dates.length-1)||'0';
+  document.getElementById('stat-days-record').textContent=daysRecorded||'0';
+
+  if(pred){
+    const ndays=diffDays(todayStr(),pred.next);
+    document.getElementById('stat-next-date').innerHTML=pred.next.slice(5).replace('-','/');
+    document.getElementById('stat-next-label').textContent='下次月经';
+    document.getElementById('stat-next-diff').textContent=ndays>=0?`还有 ${ndays} 天`:'已开始';
+    const odays=diffDays(todayStr(),pred.ovu);
+    document.getElementById('stat-ovu-date').innerHTML=pred.ovu.slice(5).replace('-','/');
+    document.getElementById('stat-ovu-label').textContent='下次排卵';
+    document.getElementById('stat-ovu-diff').textContent=odays>=0?`还有 ${odays} 天`:'已过';
+  }else{
+    document.getElementById('stat-next-date').textContent='--';
+    document.getElementById('stat-next-diff').textContent='--';
+    document.getElementById('stat-ovu-date').textContent='--';
+    document.getElementById('stat-ovu-diff').textContent='--';
+  }
+  renderInsight();
+}
+function renderInsight(){
+  const records=Object.entries(DB.records).filter(([d,r])=>r.mood||r.energy||r.sleep).sort((a,b)=>a[0].localeCompare(b[0]));
+  if(!records.length){
+    document.getElementById('analysis-insight').innerHTML='记录几天后，我就能帮你发现身体的小规律啦～<br>比如「你每次黄体期心情都会低落」这样的贴心发现';
+    return;
+  }
+  const phaseStats={men:{mood:0,energy:0,n:0},fol:{mood:0,energy:0,n:0},ovu:{mood:0,energy:0,n:0},lut:{mood:0,energy:0,n:0}};
+  const moodVal={'😄':5,'🙂':4,'😐':3,'😢':2,'😡':2};
+  records.forEach(([d,r])=>{
+    const day=getCycleDayFor(d);
+    const ph=getPhase(day,predictCycleLen());
+    if(!ph||!phaseStats[ph])return;
+    if(r.mood&&moodVal[r.mood]!=null){phaseStats[ph].mood+=moodVal[r.mood];phaseStats[ph].n++;}
+    if(r.energy){phaseStats[ph].energy+=parseInt(r.energy);phaseStats[ph].n++;}
+  });
+  let best='',worst='';
+  const order=['men','fol','ovu','lut'];
+  const names={men:'月经期',fol:'卵泡期',ovu:'排卵期',lut:'黄体期'};
+  let bestScore=-1,worstScore=99;
+  order.forEach(ph=>{
+    const s=phaseStats[ph];
+    if(s.n>=2){
+      const avg=(s.mood+s.energy)/2/s.n;
+      if(avg>bestScore){bestScore=avg;best=ph;}
+      if(avg<worstScore){worstScore=avg;worst=ph;}
+    }
+  });
+  let html='';
+  if(best&&best!==worst){
+    html+=`我发现你通常在<b>${names[best]}</b>状态最好（精力足、心情好）<br>`;
+  }
+  if(worst&&best!==worst){
+    html+=`而在<b>${names[worst]}</b>容易感觉疲惫或低落<br>`;
+  }
+  if(best||worst){
+    html+=`<br>小建议：状态好的时候多做点事，状态差的时候给自己留点余量，这就是「顺应身体」的智慧～`;
+  }
+  if(!html)html='记录得再多一点，规律会越来越明显哦～继续加油';
+  document.getElementById('analysis-insight').innerHTML=html;
+}
+
+/* ==================== 备份 ==================== */
+function exportData(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='月汐数据备份_'+todayStr()+'.json';
+  a.click();URL.revokeObjectURL(url);
+  showToast('已导出备份文件');
+}
+function importData(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!data.records)throw new Error('格式不对');
+      DB=data;
+      DB.settings.reminders=DB.settings.reminders||{period:false,ovu:false,daily:false};
+      saveDB();
+      showToast('导入成功！');
+      renderAll();
+    }catch(err){showToast('导入失败，文件格式不对');}
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+/* ==================== 我的页 & 提醒 ==================== */
+function renderMine(){
+  document.getElementById('set-cycle').textContent=DB.settings.cycleLen||28;
+  document.getElementById('set-period').textContent=DB.settings.periodLen||5;
+  const r=DB.settings.reminders;
+  document.getElementById('remind-period').checked=r.period;
+  document.getElementById('remind-ovu').checked=r.ovu;
+  document.getElementById('remind-daily').checked=r.daily;
+  const box=document.getElementById('notice-perm-box');
+  if('Notification' in window&&Notification.permission==='default'){
+    box.innerHTML=`<div class="notice-perm">要开启提醒，需要先允许浏览器发送通知。<button class="btn-sm btn-ghost" style="margin-top:8px;" onclick="requestNotif()">开启通知</button></div>`;
+  }else if('Notification' in window&&Notification.permission!=='granted'){
+    box.innerHTML=`<div class="notice-perm">通知未开启。提醒功能需要浏览器通知权限。</div>`;
+  }else{box.innerHTML='';}
+}
+function requestNotif(){
+  if('Notification' in window){
+    Notification.requestPermission().then(p=>{
+      if(p==='granted'){showToast('通知已开启！');checkReminders();}
+      renderMine();
+    });
+  }
+}
+function adjust(type,delta){
+  if(type==='cycle'){
+    DB.settings.cycleLen=Math.max(21,Math.min(45,(DB.settings.cycleLen||28)+delta));
+  }else{
+    DB.settings.periodLen=Math.max(3,Math.min(10,(DB.settings.periodLen||5)+delta));
+  }
+  saveDB();renderMine();renderAll();
+}
+function toggleReminder(k,on){
+  DB.settings.reminders=DB.settings.reminders||{period:false,ovu:false,daily:false};
+  DB.settings.reminders[k]=on;
+  saveDB();
+  if(on){
+    if('Notification' in window&&Notification.permission!=='granted'){
+      requestNotif();
+    }else{showToast('提醒已开启！');}
+  }else{showToast('提醒已关闭');}
+}
+function checkReminders(){
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  const pred=predictNext();
+  if(!pred)return;
+  const r=DB.settings.reminders||{};
+  if(r.period){
+    const days=diffDays(todayStr(),pred.next);
+    if(days===1){new Notification('月汐提醒',{body:'明天可能来月经哦，提前准备一下卫生用品吧～'});}
+  }
+  if(r.ovu){
+    const ovuStart=addDays(pred.ovu,-2);
+    if(todayStr()===ovuStart){new Notification('月汐提醒',{body:'排卵期要开始啦，这几天注意做好防护哦～'});}
+  }
+  if(r.daily){
+    const rec=DB.records[todayStr()];
+    if(!rec||!(rec.mood||rec.energy)){new Notification('月汐提醒',{body:'今天还没记录感受，花10秒跟身体打个招呼吧'});}
+  }
+}
+
+/* ==================== 首次引导 ==================== */
+function initOnboard(){
+  if(!DB.firstRun&&!DB.settings.lastPeriod){
+    document.getElementById('onboard').classList.add('show');return;
+  }
+  if(DB.firstRun){document.getElementById('onboard').classList.add('show');}
+}
+function finishOnboard(){
+  const cycle=Math.max(21,Math.min(45,parseInt(document.getElementById('ob-cycle').value)||28));
+  const period=Math.max(3,Math.min(10,parseInt(document.getElementById('ob-period').value)||5));
+  const last=document.getElementById('ob-lastperiod').value;
+  DB.settings.cycleLen=cycle;
+  DB.settings.periodLen=period;
+  DB.firstRun=false;
+  if(last){DB.settings.lastPeriod=last;if(!DB.records[last])DB.records[last]={};DB.records[last].isPeriodStart=true;}
+  saveDB();
+  document.getElementById('onboard').classList.remove('show');
+  showToast('设置完成，欢迎加入！');
+  renderAll();
+}
+
+/* ==================== 页面切换 ==================== */
+function switchPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.tab-item').forEach(t=>t.classList.toggle('active',t.dataset.page===name));
+  if(name==='curve')renderCurve();
+  if(name==='analysis')renderAnalysis();
+  if(name==='diary')renderDiary();
+  if(name==='mine')renderMine();
+}
+
+/* ==================== 总渲染 ==================== */
+function renderAll(){
+  renderToday();
+  const pred=predictNext();
+  let html=`${todayStr().slice(5)}<br>${weekCN(todayStr())}`;
+  if(pred){
+    const days=diffDays(todayStr(),pred.next);
+    html+=`<br><span style="color:var(--primary-dark);font-weight:600;">${days>=0?days+'天后':'今天'}来月经</span>`;
+  }
+  document.getElementById('header-date').innerHTML=html;
+}
+
+/* ==================== PWA 支持 ==================== */
+(function initPWA(){
+  const manifest={
+    name:'月汐 · 女性周期伴侣',
+    short_name:'月汐',
+    start_url:'.',
+    display:'standalone',
+    background_color:'#FFF8F0',
+    theme_color:'#FF6B6B',
+    icons:[{src:'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23FF6B6B%22/%3E%3Cpath d=%22M65 25C65 25 55 35 55 50C55 65 65 75 65 75C52 75 42 64 42 50C42 36 52 25 65 25Z%22 fill=%22%23fff%22/%3E%3C/svg%3E',sizes:'512x512',type:'image/svg+xml'}]
+  };
+  const blob=new Blob([JSON.stringify(manifest)],{type:'application/json'});
+  document.getElementById('manifest-link').href=URL.createObjectURL(blob);
+
+  if('serviceWorker' in navigator){
+    const swCode=`self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>new Response('Offline'))));`;
+    const swBlob=new Blob([swCode],{type:'application/javascript'});
+    navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
+  }
+})();
+
+/* ==================== 启动 ==================== */
+loadDB();
+initOnboard();
+renderAll();
+checkReminders();
+</script>
+</body>
+</html>
